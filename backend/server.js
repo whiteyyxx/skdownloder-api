@@ -19,7 +19,7 @@
 
 const express  = require("express");
 const cors     = require("cors");
-const { exec } = require("child_process");
+const ytDlp = require("yt-dlp-exec");
 const path     = require("path");
 const fs       = require("fs");
 const { v4: uuidv4 } = require("uuid");
@@ -57,44 +57,26 @@ app.get("/health", (req, res) => {
  * Response: { success: true, filename: string }
  *        or { success: false, error: string }
  */
-app.post("/download", (req, res) => {
-  const { url, format } = req.body;
+app.post("/download", async (req, res) => {
+  const { url } = req.body;
 
-  // ── Input Validation ────────────────────────────────────────────────────────
-  if (!url || typeof url !== "string") {
-    return res.status(400).json({ success: false, error: "Missing or invalid 'url' field." });
+  const fileName = `video_${Date.now()}.mp4`;
+  const filePath = `downloads/${fileName}`;
+
+  try {
+    await ytDlp(url, {
+      output: filePath,
+      format: "best"
+    });
+
+    res.json({
+      downloadUrl: `https://your-app.onrender.com/file/${fileName}`
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Download failed" });
   }
-
-  if (!isValidYouTubeUrl(url)) {
-    return res.status(400).json({ success: false, error: "URL is not a valid YouTube video link." });
-  }
-
-  // ── Build yt-dlp Command ────────────────────────────────────────────────────
-  const outputTemplate = path.join(DOWNLOADS_DIR, "%(title)s.%(ext)s");
-  const ytdlpCmd = buildYtdlpCommand(url, format, outputTemplate);
-
-  console.log(`\n⬇  Starting download`);
-  console.log(`   URL    : ${url}`);
-  console.log(`   Format : ${format}`);
-  console.log(`   Command: ${ytdlpCmd}\n`);
-
-  // ── Execute yt-dlp ──────────────────────────────────────────────────────────
-  exec(ytdlpCmd, { timeout: 5 * 60 * 1000 }, (error, stdout, stderr) => {
-    if (error) {
-      console.error("❌ yt-dlp error:", stderr || error.message);
-      return res.status(500).json({
-        success: false,
-        error: "yt-dlp failed. Check server logs for details.",
-        details: stderr || error.message
-      });
-    }
-
-    // Parse filename from yt-dlp's stdout (looks for "[download] Destination: ...")
-    const filename = extractFilename(stdout) || "video (check downloads folder)";
-
-    console.log(`✅ Download complete: ${filename}`);
-    return res.json({ success: true, filename });
-  });
 });
 
 // ── Helper: Validate YouTube URL ──────────────────────────────────────────────
