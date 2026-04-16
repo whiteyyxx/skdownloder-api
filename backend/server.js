@@ -1,7 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const ytDlp = require("yt-dlp-exec").create({
-  binaryPath: "yt-dlp" // use pip-installed yt-dlp
+  binaryPath: "yt-dlp"
 });
 const path = require("path");
 const fs = require("fs");
@@ -46,9 +46,12 @@ app.post("/download", async (req, res) => {
   try {
     console.log("Downloading...");
 
-    await ytDlp(url, {
-      o: filePath
-    });
+    // ✅ FINAL FIX (use exec mode)
+    await ytDlp.exec([
+      url,
+      "-o",
+      filePath
+    ]);
 
     console.log("Download complete:", filename);
 
@@ -78,5 +81,5 @@ app.get("/health", (req, res) => {
 
 // ── Start server ───────────────────────────────────────
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
 });
