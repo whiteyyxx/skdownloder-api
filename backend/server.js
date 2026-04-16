@@ -1,6 +1,9 @@
 const express = require("express");
 const cors = require("cors");
-const ytDlp = require("yt-dlp-exec");
+const ytDlp = require("yt-dlp-exec").create({
+  // force auto-download of binary
+  download: true,
+});
 const path = require("path");
 const fs = require("fs");
 
@@ -66,7 +69,6 @@ app.post("/download", async (req, res) => {
 
     await ytDlp(url, {
       output: filePath,
-      format: formatOption
     });
 
     console.log(`Download complete: ${filename}`);
