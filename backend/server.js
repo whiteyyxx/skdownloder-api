@@ -1,8 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const ytDlp = require("yt-dlp-exec").create({
-  // force auto-download of binary
-  download: true,
+  binaryPath: "yt-dlp" // use pip-installed yt-dlp
 });
 const path = require("path");
 const fs = require("fs");
@@ -10,41 +9,32 @@ const fs = require("fs");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ── Middleware ───────────────────────────────────────────────────────────────
+// ── Middleware ─────────────────────────────────────────
 app.use(cors());
 app.use(express.json());
 
-// ── Ensure downloads folder exists ───────────────────────────────────────────
+// ── Ensure downloads folder exists ─────────────────────
 const DOWNLOADS_DIR = path.join(__dirname, "downloads");
 if (!fs.existsSync(DOWNLOADS_DIR)) {
   fs.mkdirSync(DOWNLOADS_DIR, { recursive: true });
 }
 
-// ── GET: Download File ───────────────────────────────────────────────────────
+// ── GET: Download file ─────────────────────────────────
 app.get("/file/:filename", (req, res) => {
-  const { filename } = req.params;
-  const filePath = path.join(DOWNLOADS_DIR, filename);
+  const filePath = path.join(DOWNLOADS_DIR, req.params.filename);
 
   if (fs.existsSync(filePath)) {
-    res.download(filePath, (err) => {
-      if (err) {
-        console.error("Download error:", err);
-      } else {
-        console.log(`File sent: ${filename}`);
-      }
-    });
+    res.download(filePath);
   } else {
     res.status(404).json({ error: "File not found" });
   }
 });
 
-// ── POST: Download Video ─────────────────────────────────────────────────────
+// ── POST: Download video ───────────────────────────────
 app.post("/download", async (req, res) => {
-  console.log("Request body:", req.body);
+  const { url } = req.body;
 
-  const { url, format } = req.body;
-  console.log("URL:", url);
-  console.log("Format:", format);
+  console.log("URL received:", url);
 
   if (!url) {
     return res.status(400).json({ error: "URL is required" });
@@ -54,34 +44,19 @@ app.post("/download", async (req, res) => {
   const filePath = path.join(DOWNLOADS_DIR, filename);
 
   try {
-    console.log("Starting download...");
-
-    // Optional format handling
-    let formatOption = "best";
-
-    if (format === "360p") {
-      formatOption = "bestvideo[height<=360]+bestaudio";
-    } else if (format === "720p") {
-      formatOption = "bestvideo[height<=720]+bestaudio";
-    } else if (format === "1080p") {
-      formatOption = "bestvideo[height<=1080]+bestaudio";
-    }
+    console.log("Downloading...");
 
     await ytDlp(url, {
-      output: filePath,
+      output: filePath
     });
 
-    console.log(`Download complete: ${filename}`);
+    console.log("Download complete:", filename);
 
-    // ✅ FIXED: dynamic URL (works on Render)
     const downloadUrl = `${req.protocol}://${req.get("host")}/file/${filename}`;
 
-    // Auto delete file after 5 minutes
+    // Auto delete after 5 mins
     setTimeout(() => {
-      fs.unlink(filePath, (err) => {
-        if (err) console.error("Delete error:", err);
-        else console.log(`Deleted: ${filename}`);
-      });
+      fs.unlink(filePath, () => {});
     }, 5 * 60 * 1000);
 
     res.json({ downloadUrl });
@@ -96,14 +71,12 @@ app.post("/download", async (req, res) => {
   }
 });
 
-// ── Health Check ─────────────────────────────────────────────────────────────
+// ── Health check ───────────────────────────────────────
 app.get("/health", (req, res) => {
-  res.json({ status: "ok", message: "Server is running" });
+  res.json({ status: "ok" });
 });
 
-// ── Start Server ─────────────────────────────────────────────────────────────
+// ── Start server ───────────────────────────────────────
 app.listen(PORT, () => {
-  console.log(`\n🚀 Server running`);
-  console.log(`POST /download`);
-  console.log(`GET  /file/:filename\n`);
+  console.log(`Server running on port ${PORT}`);
 });
