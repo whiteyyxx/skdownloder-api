@@ -47,7 +47,7 @@ app.post("/download", async (req, res) => {
     console.log("Downloading...");
 
     await ytDlp(url, {
-      output: filePath
+      o: filePath
     });
 
     console.log("Download complete:", filename);
